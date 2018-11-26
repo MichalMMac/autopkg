@@ -199,6 +199,17 @@ def update_data(a_dict, key, value):
 
     a_dict[key] = do_variable_substitution(value)
 
+def log(msg, error=False):
+    '''Message logger, prints to stdout/stderr.'''
+    if error:
+        print >> sys.stderr, unicode(msg).encode('UTF-8')
+    else:
+        print >> sys.stdout, unicode(msg).encode('UTF-8')
+
+
+def log_err(msg):
+    '''Message logger for errors.'''
+    log(msg, error=True)
 
 def curl_cmd():
     """Returns a path to a curl binary, priority in the order below.
