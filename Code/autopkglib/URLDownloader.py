@@ -18,7 +18,9 @@
 
 import os.path
 import tempfile
+import urlparse
 import xattr
+from urllib2 import unquote
 
 from autopkglib import ProcessorError
 from autopkglib.URLGetter import URLGetter
@@ -58,6 +60,15 @@ class URLDownloader(URLGetter):
         "filename": {
             "required": False,
             "description": "Filename to override the URL's tail.",
+        },
+        "rename_after_redirect": {
+            "default": False,
+            "required": False,
+            "description": ("If True and download is redirected new filename is found out"
+                            "from final URL. Pathname is reconfigured and original"
+                            "filename is hardlinked to the new filename. This ensures"
+                            "next download attempt can load etag from known filename"
+                            "since new filename is not know before download"),
         },
         "CHECK_FILESIZE_ONLY": {
             "default": False,
@@ -234,6 +245,18 @@ class URLDownloader(URLGetter):
             raise ProcessorError(
                 "Can't move %s to %s" % (pathname_temporary, self.env["pathname"]))
 
+    def handle_redirect_filename(self, header, download_dir):
+        purl = urlparse.urlparse(header["http_redirected"])
+        filename = os.path.basename(unquote(purl.path))
+        downloaded_pathname = self.env["pathname"]
+        self.env["pathname"] = os.path.join(download_dir, filename)
+
+        # Remove previous hardlinked file
+        if os.path.exists(self.env["pathname"]):
+            os.remove(self.env["pathname"])
+        # Create hardlinked file with name from final URL
+        os.link(downloaded_pathname, self.env["pathname"])
+
     def store_headers(self, header):
         """Store last-modified and etag headers in pathname xattr."""
         if header.get("last-modified"):
@@ -283,6 +306,11 @@ class URLDownloader(URLGetter):
 
         # Save last-modified and etag headers to files xattr
         self.store_headers(header)
+
+        # Update pathname if we were redirected to different URL
+        # Also create hardlink with desired filename
+        if 'http_redirected' in header and self.env["rename_after_redirect"]:
+            self.handle_redirect_filename(header, download_dir)
 
         # Generate output messages and variables
         self.output("Downloaded %s" % self.env["pathname"])
