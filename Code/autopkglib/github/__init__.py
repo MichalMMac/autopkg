@@ -192,9 +192,9 @@ To save the token, paste it to the following prompt."""
 
         # Execute curl command and parse headers
         raw_headers = self.download(curl_cmd)
-        header = super(GitHubSession, self).parse_headers(raw_headers)
-        if header["http_result_code"] != "000":
-            self.http_result_code = int(header["http_result_code"])
+        headers = super(GitHubSession, self).parse_headers(raw_headers)
+        if headers["http_result_code"] != "000":
+            self.http_result_code = int(headers["http_result_code"])
 
         try:
             with open(temp_content) as f:

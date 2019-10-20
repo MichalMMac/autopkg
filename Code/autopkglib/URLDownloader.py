@@ -190,12 +190,12 @@ class URLDownloader(URLGetter):
         curl_cmd.extend(["--head"])
 
         raw_headers = super(URLDownloader, self).download(curl_cmd)
-        header = super(URLDownloader, self).parse_headers(raw_headers)
+        headers = super(URLDownloader, self).parse_headers(raw_headers)
 
-        if "filename=" in header.get("content-disposition", ""):
-            filename = header["content-disposition"].rpartition("filename=")[2]
-        elif header.get("http_redirected", None):
-            filename = header["http_redirected"].rpartition("/")[2]
+        if "filename=" in headers.get("content-disposition", ""):
+            filename = headers["content-disposition"].rpartition("filename=")[2]
+        elif headers.get("http_redirected", None):
+            filename = headers["http_redirected"].rpartition("/")[2]
         else:
             return None
 
@@ -248,16 +248,16 @@ class URLDownloader(URLGetter):
         os.chmod(pathname_temporary, 0o644)
         return pathname_temporary
 
-    def download_changed(self, header):
+    def download_changed(self, headers):
         """Check if downloaded file changed on server."""
         # If Content-Length header is present and we had a cached
         # file, see if it matches the size of the cached file.
         # Useful for webservers that don't provide Last-Modified
         # and ETag headers.
-        if (not header.get("etag") and not header.get("last-modified")) or self.env[
+        if (not headers.get("etag") and not headers.get("last-modified")) or self.env[
             "CHECK_FILESIZE_ONLY"
         ]:
-            size_header = header.get("content-length")
+            size_header = headers.get("content-length")
             if size_header and int(size_header) == self.existing_file_size:
                 self.env["download_changed"] = False
                 self.output(
@@ -272,7 +272,7 @@ class URLDownloader(URLGetter):
                 self.output("Using existing %s" % self.env["pathname"])
                 return False
 
-        if header["http_result_code"] == "304":
+        if headers["http_result_code"] == "304":
             # resource not modified
             self.env["download_changed"] = False
             self.output("Item at URL is unchanged.")
@@ -292,24 +292,24 @@ class URLDownloader(URLGetter):
                 "Can't move %s to %s" % (pathname_temporary, self.env["pathname"])
             )
 
-    def store_headers(self, header):
+    def store_headers(self, headers):
         """Store last-modified and etag headers in pathname xattr."""
-        if header.get("last-modified"):
-            self.env["last_modified"] = header.get("last-modified")
+        if headers.get("last-modified"):
+            self.env["last_modified"] = headers.get("last-modified")
             xattr.setxattr(
                 self.env["pathname"],
                 self.xattr_last_modified,
-                header.get("last-modified"),
+                headers.get("last-modified"),
             )
             self.output(
-                "Storing new Last-Modified header: %s" % header.get("last-modified")
+                "Storing new Last-Modified header: %s" % headers.get("last-modified")
             )
 
         self.env["etag"] = ""
-        if header.get("etag"):
-            self.env["etag"] = header.get("etag")
-            xattr.setxattr(self.env["pathname"], self.xattr_etag, header.get("etag"))
-            self.output("Storing new ETag header: %s" % header.get("etag"))
+        if headers.get("etag"):
+            self.env["etag"] = headers.get("etag")
+            xattr.setxattr(self.env["pathname"], self.xattr_etag, headers.get("etag"))
+            self.output("Storing new ETag header: %s" % headers.get("etag"))
 
     def main(self):
         if not is_mac():
@@ -331,9 +331,9 @@ class URLDownloader(URLGetter):
 
         # Execute curl command and parse headers
         raw_headers = super(URLDownloader, self).download(curl_cmd)
-        header = super(URLDownloader, self).parse_headers(raw_headers)
+        headers = super(URLDownloader, self).parse_headers(raw_headers)
 
-        if self.download_changed(header):
+        if self.download_changed(headers):
             self.env["download_changed"] = True
         else:
             # Discard the temp file
@@ -344,7 +344,7 @@ class URLDownloader(URLGetter):
         self.move_temp_file(pathname_temporary)
 
         # Save last-modified and etag headers to files xattr
-        self.store_headers(header)
+        self.store_headers(headers)
 
         # Generate output messages and variables
         self.output("Downloaded %s" % self.env["pathname"])

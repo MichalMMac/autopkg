@@ -70,33 +70,33 @@ class URLGetter(Processor):
         for item in self.env.get("curl_opts", []):
             curl_cmd.extend([item])
 
-    def clear_header(self, header):
+    def clear_headers(self, headers):
         """Clear header dictionary"""
         # Save redirect URL before clear
-        http_redirected = header.get("http_redirected", None)
-        header.clear()
-        header["http_result_code"] = "000"
-        header["http_result_description"] = ""
+        http_redirected = headers.get("http_redirected", None)
+        headers.clear()
+        headers["http_result_code"] = "000"
+        headers["http_result_description"] = ""
 
         # Restore redirect URL
-        header["http_redirected"] = http_redirected
+        headers["http_redirected"] = http_redirected
 
-    def parse_http_protocol(self, line, header):
+    def parse_http_protocol(self, line, headers):
         """Parse first HTTP header line"""
         try:
-            header["http_result_code"] = line.split(None, 2)[1]
-            header["http_result_description"] = line.split(None, 2)[2]
+            headers["http_result_code"] = line.split(None, 2)[1]
+            headers["http_result_description"] = line.split(None, 2)[2]
         except IndexError:
             pass
 
-    def parse_http_header(self, line, header):
+    def parse_http_header(self, line, headers):
         """Parse single HTTP header line."""
         part = line.split(None, 1)
         fieldname = part[0].rstrip(":").lower()
         try:
-            header[fieldname] = part[1]
+            headers[fieldname] = part[1]
         except IndexError:
-            header[fieldname] = ""
+            headers[fieldname] = ""
 
     def parse_curl_error(self, proc_stderr):
         """Report curl failure."""
@@ -109,7 +109,7 @@ class URLGetter(Processor):
 
         return curl_err
 
-    def parse_ftp_header(self, line, header):
+    def parse_ftp_header(self, line, headers):
         """Parse single FTP header line."""
         part = line.split(None, 1)
         responsecode = part[0]
@@ -117,30 +117,30 @@ class URLGetter(Processor):
             # This is the reply to curl's SIZE command on the file
             # We can map it to the HTTP content-length header
             try:
-                header["content-length"] = part[1]
+                headers["content-length"] = part[1]
             except IndexError:
                 pass
         elif responsecode.startswith("55"):
-            header["http_result_code"] = "404"
-            header["http_result_description"] = line
+            headers["http_result_code"] = "404"
+            headers["http_result_description"] = line
         elif responsecode == "150" or responsecode == "125":
-            header["http_result_code"] = "200"
-            header["http_result_description"] = line
+            headers["http_result_code"] = "200"
+            headers["http_result_description"] = line
 
     def parse_headers(self, raw_headers):
         """Parse headers from curl."""
-        header = {}
-        self.clear_header(header)
+        headers = {}
+        self.clear_headers(headers)
         for line in raw_headers.splitlines():
             if line.startswith("HTTP/"):
-                self.parse_http_protocol(line, header)
+                self.parse_http_protocol(line, headers)
             elif ": " in line:
-                self.parse_http_header(line, header)
+                self.parse_http_header(line, headers)
             elif self.env["url"].startswith("ftp://"):
-                self.parse_ftp_header(line, header)
+                self.parse_ftp_header(line, headers)
             elif line == "":
                 # we got an empty line; end of headers (or curl exited)
-                if header.get("http_result_code") in [
+                if headers.get("http_result_code") in [
                     "301",
                     "302",
                     "303",
@@ -149,9 +149,9 @@ class URLGetter(Processor):
                 ]:
                     # redirect, so more headers are coming.
                     # Throw away the headers we've received so far
-                    header["http_redirected"] = header.get("location", None)
-                    self.clear_header(header)
-        return header
+                    headers["http_redirected"] = headers.get("location", None)
+                    self.clear_headers(headers)
+        return headers
 
     def execute_curl(self, curl_cmd):
         """Execute curl comamnd. Return stdout, stderr and return code."""
