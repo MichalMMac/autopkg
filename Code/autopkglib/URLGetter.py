@@ -189,7 +189,7 @@ class URLGetter(Processor):
                 text=text,
             )
         except subprocess.CalledProcessError as e:
-            raise ProcessorError(e)
+            raise ProcessorError(e.stderr)
         return result.stdout, result.stderr, result.returncode
 
     def download_with_curl(self, curl_cmd, text=True):
