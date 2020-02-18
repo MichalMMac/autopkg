@@ -179,6 +179,7 @@ class URLGetter(Processor):
 
     def execute_curl(self, curl_cmd, text=True):
         """Execute curl command. Return stdout, stderr and return code."""
+        self.output(f"Curl command: {curl_cmd}", verbose_level=4)
         try:
             result = subprocess.run(
                 curl_cmd,
@@ -195,7 +196,6 @@ class URLGetter(Processor):
     def download_with_curl(self, curl_cmd, text=True):
         """Launch curl, return its output, and handle failures."""
         proc_stdout, proc_stderr, retcode = self.execute_curl(curl_cmd, text)
-        self.output(f"Curl command: {curl_cmd}", verbose_level=4)
         if retcode:  # Non-zero exit code from curl => problem with download
             curl_err = self.parse_curl_error(proc_stderr)
             raise ProcessorError(f"curl failure: {curl_err} (exit code {retcode})")
